@@ -1,9 +1,10 @@
 import "reflect-metadata";
 import { User } from "../entity/User";
 import { compare, hash } from "bcrypt";
-import { Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver } from "type-graphql";
+import { Arg, Ctx, Field, Mutation, ObjectType, Query, Resolver, UseMiddleware } from "type-graphql";
 import { MyContext } from "../MyContext";
 import { createAccessToken, createRefreshToken } from "../auth";
+import { isAuth } from "../isAuth";
 
 
 @ObjectType()
@@ -15,20 +16,27 @@ class LoginResponse {
 
 @Resolver()
 export class UserResolver {
-	@Query(() => String!)
+	@Query(() => String)
 	hello() {
 		return "hello world";
 	}
 
 
+	@Query(() => String)
+	@UseMiddleware(isAuth)
+	bye(@Ctx() {payload}: MyContext) {
+		console.log(payload)
+		return `your user id is ${payload!.userId}`;
+	}
+
+
 	@Query(() => User)
 	async getUser(@Arg("id") id: number) {
-		const retrievedUser = await User.findOne({
+		return await User.findOne({
 			where: {
 				id,
 			},
 		});
-		return retrievedUser;
 	}
 
 
@@ -72,7 +80,7 @@ export class UserResolver {
 			const hashedPassword = await hash(password, 12);
 			await User.insert({
 				email,
-				password: hashedPassword,
+				password: hashedPassword!,
 			});
 			return true;
 		} catch (err) {
